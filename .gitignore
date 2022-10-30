@@ -1,0 +1,5 @@
+*.session
+config.py
+__pycache__
+.db
+schedule.db
