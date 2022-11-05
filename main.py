@@ -99,11 +99,11 @@ async def delete_reply(event):
 
 def clear_interaction(): #At the beginning of the interaction setupt everything properly
     #current_order = order.COMMAND_FIRST   
-    bot.remove_event_handler(emoji_reply, events.NewMessage)
-    bot.remove_event_handler(confirmation_reply, events.NewMessage)
-    bot.remove_event_handler(time_reply, events.NewMessage)
-    bot.remove_event_handler(day_reply, events.NewMessage)
-    bot.remove_event_handler(emoji_collect, events.NewMessage)
+    bot.remove_event_handler(emoji_reply, events.NewMessage(from_users = my_id))
+    bot.remove_event_handler(confirmation_reply, events.CallbackQuery(chats = my_id))
+    bot.remove_event_handler(time_reply, events.NewMessage(from_users = my_id))
+    bot.remove_event_handler(day_reply, events.CallbackQuery(chats = my_id))
+    bot.remove_event_handler(emoji_collect, events.NewMessage(from_users = my_id))
 
     global emojies, times, days_map
 
@@ -114,19 +114,21 @@ def clear_interaction(): #At the beginning of the interaction setupt everything 
 @bot.on(events.NewMessage(from_users = my_id))  #User can start interacation with emojy - then set will be asked for days and times to schedule this emoji set
 async def emoji_reply(event):
 
-    message_emojies = retrieve_emojies(event.message.entities)
-    print (message_emojies)
-    if message_emojies is None:
+    global emojies
+
+    emojies = retrieve_emojies(event.message.entities)
+    print (emojies)
+    if emojies is None:
         return
 
-    if message_emojies.size == 1:
-        await event.reply("What do you to do with this emoji?")
+    if len(emojies) == 1:
+        mes_text = "What do you want to do with this emoji?"
     else:
-        await event.reply("What do you to do with these emojies?")
+        mes_text = "What do you want to do with these emojies?"
 
-    await bot.send_message(my_id, buttons=[[Button.inline('Add to schedule'), Button.inline('Remove from schedule')], [Button.inline('Show in schedule')]])
+    await bot.send_message(my_id, mes_text, buttons=[[Button.inline('Add to schedule'), Button.inline('Remove from schedule')], [Button.inline('Show in schedule')]])
 
-    bot.add_event_handler(confirmation_reply, events.NewMessage(from_users = my_id))
+    bot.add_event_handler(confirmation_reply, events.CallbackQuery(chats = my_id))
 
     #current_stage = stage.ASKED_FOR_CONFIRMATION
     #current_order = order.EMOJI_FIRST
@@ -136,18 +138,18 @@ async def emoji_reply(event):
     #result = await acc(functions.account.UpdateEmojiStatusRequest(emoji_status=types.EmojiStatus(document_id=message_emojies[0].document_id)))
     #print(result)
     await event.reply("emojitest")
-    bot.remove_event_handler(emoji_reply, events.NewMessage)
+    bot.remove_event_handler(emoji_reply, events.NewMessage(from_users = my_id))
 
-async def retrieve_emojies(entities): #Check is there are emojies in message and return list of them
+def retrieve_emojies(entities): #Check is there are emojies in message and return list of them
     if entities is None:
         return None
 
-    return [element for element in entities if isinstance(element, types.MessageEntityCustomEmoji)]
+    return [element.document_id for element in entities if isinstance(element, types.MessageEntityCustomEmoji)]
 
 async def confirmation_reply(event): #Process user's choise of action
     print (event)
     await ask_for_time()
-    bot.remove_event_handler(confirmation_reply, events.NewMessage)
+    bot.remove_event_handler(confirmation_reply, events.CallbackQuery(chats = my_id))
 
 async def ask_for_time(): 
     await bot.send_message(my_id, "Select time in which emoji should be set as status (or enter your own using format HH:MM, you can also enter multiple like HH:MM, HH:MM, HH:MM)", 
@@ -167,6 +169,7 @@ async def ask_for_time():
 async def time_reply(event): #Process user's input of times
     # if current_stage != stage.ASKED_FOR_TIME:
     #     return
+    global times
 
     if 'SET EVERYTIME' in event.raw_text:
         times = ['all']
@@ -181,16 +184,16 @@ async def time_reply(event): #Process user's input of times
         ask_for_time()
         return
 
-    await bot.send_message(my_id, "Select day of week in which emoji should be set as status", 
-    buttons=[[Button.inline('Everyday')], 
-    [Button.inline('Monday'), Button.inline('Tuesday'), Button.inline('Whednesday')],
-    [Button.inline('Thursday'), Button.inline('Friday'), Button.inline('Saturday'), Button.inline('Sunday')]])
+    #await bot.send_message(my_id, "Select day of week in which emoji should be set as status", 
+    # buttons=[[Button.inline('Everyday')], 
+    # [Button.inline('Monday'), Button.inline('Tuesday'), Button.inline('Whednesday')],
+    # [Button.inline('Thursday'), Button.inline('Friday'), Button.inline('Saturday'), Button.inline('Sunday')]])
 
     #current_stage = stage.ASKED_FOR_DATE
 
-    ask_for_date(True)
+    await ask_for_date(True)
 
-    bot.remove_event_handler(time_reply, events.NewMessage)
+    bot.remove_event_handler(time_reply, events.NewMessage(from_users = my_id))
 
     await event.reply("timeTest")
 
@@ -203,11 +206,15 @@ async def ask_for_date(first_time):
 
     await bot.send_message(my_id, "Select day of week in which emoji should be set as status", 
     buttons=[first_line, 
-    [Button.inline(('Delete' if 1 & days_map else 'Add') + 'Monday', 1), Button.inline(('Delete' if 1 & days_map else 'Add') + 'Tuesday', 2), Button.inline(('Delete' if 1 & days_map else 'Add') + 'Whednesday', 3)],
-    [Button.inline(('Delete' if 1 & days_map else 'Add') + 'Thursday', 4), Button.inline(('Delete' if 1 & days_map else 'Add') + 'Friday', 5), Button.inline(('Delete' if 1 & days_map else 'Add') + 'Saturday', 6), Button.inline(('Delete' if 1 & days_map else 'Add') + 'Sunday', 7)]])
-    bot.add_event_handler(day_reply, events.CallbackQuery(from_users = my_id))
+    [Button.inline(('Delete ' if 1 & days_map else 'Add ') + 'Monday', 1), Button.inline(('Delete ' if 1 & days_map else 'Add') + 'Tuesday ', 2), Button.inline(('Delete ' if 1 & days_map else 'Add ') + 'Whednesday ', 3)],
+    [Button.inline(('Delete ' if 1 & days_map else 'Add ') + 'Thursday', 4), Button.inline(('Delete ' if 1 & days_map else 'Add') + 'Friday ', 5), Button.inline(('Delete ' if 1 & days_map else 'Add ') + 'Saturday ', 6), Button.inline(('Delete ' if 1 & days_map else 'Add ') + 'Sunday', 7)]])
+    bot.add_event_handler(day_reply, events.CallbackQuery(chats = my_id))
 
 async def day_reply(event): #Process user's input of days
+
+    global days_map
+
+    #NEED TO FIX EVERYDAY LOGIC AND RAWTEXT
 
     if(event.raw_text == 'No, I\'m finished'):
         if days_map[0]:
@@ -228,11 +235,11 @@ async def day_reply(event): #Process user's input of days
             await bot.send_message(my_id, "Now please send emojis you want to add to schedule at" + daytimestring)
             bot.add_event_handler(emoji_collect, events.NewMessage(from_users = my_id))
 
-        bot.remove_event_handler(day_reply, events.NewMessage)
+        bot.remove_event_handler(day_reply, events.CallbackQuery(chats = my_id))
     else:
         days_map = days_map ^ (1 << event.data)
         await bot.send_message(my_id, "Would you like to make any changes or you finished?")
-        ask_for_date(False)
+        await ask_for_date(False)
 
     await event.reply("dayTest")
 
@@ -248,7 +255,7 @@ async def emoji_collect(event): #After user asked for emojies, add things to db 
         add_records_to_db()
         await bot.send_message(my_id, "Emojies added to schedule")
         bot.add_event_handler(emoji_reply, events.NewMessage(from_users = my_id))
-        bot.remove_event_handler(emoji_collect, events.NewMessage)
+        bot.remove_event_handler(emoji_collect, events.NewMessage(from_users = my_id))
 
 def add_records_to_db():
     for day in range(0,7):
